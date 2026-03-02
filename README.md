@@ -1,4 +1,4 @@
-# 💰 Control Financiero - Andrés & Mariana
+# 💰 Control Financiero - Andrés
 
 Aplicación de gestión financiera personal con Next.js 16, TypeScript, Tailwind CSS 4, shadcn/ui, Recharts y Google Sheets como base de datos.
 
@@ -198,7 +198,7 @@ Este proyecto es de uso personal.
 
 ## 👥 Autores
 
-Desarrollado para Andrés & Mariana
+Desarrollado para Andrés
 
 ---
 

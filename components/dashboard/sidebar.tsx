@@ -98,7 +98,7 @@ export function Sidebar() {
                     {!isCollapsed && (
                         <div className="flex flex-col overflow-hidden">
                             <span className="truncate text-lg font-bold">FinanzasApp</span>
-                            <span className="truncate text-xs text-muted-foreground">Andrés & Mariana</span>
+                            <span className="truncate text-xs text-muted-foreground">Andrés</span>
                         </div>
                     )}
                 </div>

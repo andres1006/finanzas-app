@@ -24,7 +24,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
 
         const validPasswords: Record<string, string> = {
             'Andrés': 'andres123',
-            'Mariana': 'mariana123',
         };
 
         if (password === validPasswords[selectedUser]) {
@@ -92,16 +91,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
                     </Button>
                 </form>
             </CardContent>
-            <Separator />
-            <CardFooter className="flex flex-col space-y-4 pt-6">
-                <div className="text-sm text-muted-foreground text-center">
-                    <p className="font-medium mb-2">Credenciales de prueba:</p>
-                    <div className="space-y-1">
-                        <p>👨 Andrés: <code className="bg-muted px-1 py-0.5 rounded">andres123</code></p>
-                        <p>👩 Mariana: <code className="bg-muted px-1 py-0.5 rounded">mariana123</code></p>
-                    </div>
-                </div>
-            </CardFooter>
         </Card>
     );
 }

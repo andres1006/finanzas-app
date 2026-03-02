@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Control Financiero - Andrés & Mariana",
+  title: "Control Financiero - Andrés",
   description: "Aplicación de gestión financiera personal con Google Sheets",
 };
 

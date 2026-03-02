@@ -138,7 +138,6 @@ export default function TransactionForm({ onSubmit, loading }: TransactionFormPr
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Andrés">👨 Andrés</SelectItem>
-                                    <SelectItem value="Mariana">👩 Mariana</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

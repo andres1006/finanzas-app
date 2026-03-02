@@ -23,7 +23,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                             "Esta aplicación me ha ayudado a tener un mejor control de mis finanzas personales.
                             Ahora puedo visualizar mis gastos y ahorros de manera clara y sencilla."
                         </p>
-                        <footer className="text-sm">Andrés & Mariana</footer>
+                        <footer className="text-sm">Andrés</footer>
                     </blockquote>
                 </div>
             </div>

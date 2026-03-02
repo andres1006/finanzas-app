@@ -9,7 +9,10 @@ import { Transaccion } from '@/lib/financeUtils';
 import PendingObligations from '@/components/dashboard/PendingObligations';
 import { toast } from 'sonner';
 
+import { useAutoLoadBudget } from '@/hooks/useAutoLoadBudget';
+
 export default function DashboardPage() {
+    useAutoLoadBudget();
     const [transactions, setTransactions] = useState<Transaccion[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -88,13 +91,24 @@ export default function DashboardPage() {
             </div>
 
             {/* Summary Cards */}
-            <SummaryCards transactions={transactions} />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <div className="md:col-span-3">
+                    <SummaryCards
+                        transactions={transactions.filter(t => t.fecha.startsWith(new Date().toISOString().substring(0, 7)))}
+                    />
+                </div>
+                <div className="md:col-span-1">
+                    <PendingObligations transactions={transactions} />
+                </div>
+            </div>
 
             {/* Transaction Form */}
             <TransactionForm onSubmit={handleSubmit} loading={loading} />
 
             {/* Charts */}
-            <FinanceCharts transactions={transactions} />
+            <FinanceCharts
+                transactions={transactions.filter(t => t.fecha.startsWith(new Date().toISOString().substring(0, 7)))}
+            />
 
             {/* Transactions Table */}
             <TransactionTable transactions={transactions} onDelete={handleDelete} />

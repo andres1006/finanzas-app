@@ -16,8 +16,8 @@ interface MonthlyAnalysisProps {
 export default function MonthlyAnalysis({ transactions }: MonthlyAnalysisProps) {
     const datosMensuales = useMemo(() => agruparPorMes(transactions), [transactions]);
 
-    // Mes actual por defecto
-    const mesActual = datosMensuales[0]?.mes || new Date().toISOString().substring(0, 7);
+    // Mes actual por defecto (Marzo 2026)
+    const mesActual = new Date().toISOString().substring(0, 7);
     const [mesSeleccionado, setMesSeleccionado] = useState(mesActual);
 
     const transaccionesMes = useMemo(
@@ -42,12 +42,15 @@ export default function MonthlyAnalysis({ transactions }: MonthlyAnalysisProps) 
 
     // Datos para gráfica de tendencia (últimos 6 meses)
     const datosTendencia = useMemo(() => {
-        return datosMensuales.slice(0, 6).reverse().map(d => ({
-            mes: new Date(d.mes + '-01').toLocaleDateString('es-CO', { month: 'short' }),
-            Ingresos: d.ingresos,
-            Gastos: d.gastos,
-            Balance: d.balance,
-        }));
+        return datosMensuales.slice(0, 6).reverse().map(d => {
+            const [y, m] = d.mes.split('-').map(Number);
+            return {
+                mes: new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'short' }),
+                Ingresos: d.ingresos,
+                Gastos: d.gastos,
+                Balance: d.balance,
+            };
+        });
     }, [datosMensuales]);
 
     const formatCurrency = (value: number) => {
@@ -85,10 +88,13 @@ export default function MonthlyAnalysis({ transactions }: MonthlyAnalysisProps) 
                             <SelectContent>
                                 {datosMensuales.map(d => (
                                     <SelectItem key={d.mes} value={d.mes}>
-                                        {new Date(d.mes + '-01').toLocaleDateString('es-CO', {
-                                            month: 'long',
-                                            year: 'numeric'
-                                        })}
+                                        {(() => {
+                                            const [y, m] = d.mes.split('-').map(Number);
+                                            return new Date(y, m - 1, 1).toLocaleDateString('es-CO', {
+                                                month: 'long',
+                                                year: 'numeric'
+                                            });
+                                        })()}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
