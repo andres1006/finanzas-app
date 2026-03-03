@@ -8,7 +8,7 @@ export async function GET() {
 
         if (!sheet) {
             sheet = await doc.addSheet({ title: 'Creditos_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoTotal', 'SaldoActual', 'TasaInteres', 'PlazoMeses', 'FechaInicio']);
+            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoTotal', 'SaldoActual', 'TasaInteres', 'PlazoMeses', 'FechaInicio', 'TipoTasa']);
         }
 
         const rows = await sheet.getRows();
@@ -21,6 +21,7 @@ export async function GET() {
             tasaInteres: parseFloat(row.get('TasaInteres') || '0'),
             plazoMeses: parseInt(row.get('PlazoMeses') || '0'),
             fechaInicio: row.get('FechaInicio'),
+            tipoTasa: row.get('TipoTasa') || 'EA',
         }));
 
         return NextResponse.json(credits);
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
 
         if (!sheet) {
             sheet = await doc.addSheet({ title: 'Creditos_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoTotal', 'SaldoActual', 'TasaInteres', 'PlazoMeses', 'FechaInicio']);
+            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoTotal', 'SaldoActual', 'TasaInteres', 'PlazoMeses', 'FechaInicio', 'TipoTasa']);
         }
 
         const id = `CRED-${Date.now()}`;
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
             TasaInteres: body.tasaInteres,
             PlazoMeses: body.plazoMeses,
             FechaInicio: body.fechaInicio,
+            TipoTasa: body.tipoTasa || 'EA',
         });
 
         return NextResponse.json({ success: true, id });
@@ -101,7 +103,7 @@ export async function DELETE(req: Request) {
 export async function PUT(req: Request) {
     try {
         const body = await req.json();
-        const { id, nombre, montoTotal, saldoActual, tasaInteres, plazoMeses, fechaInicio } = body;
+        const { id, nombre, montoTotal, saldoActual, tasaInteres, plazoMeses, fechaInicio, tipoTasa } = body;
 
         if (!id) {
             return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
@@ -122,6 +124,7 @@ export async function PUT(req: Request) {
             row.set('TasaInteres', tasaInteres);
             row.set('PlazoMeses', plazoMeses);
             row.set('FechaInicio', fechaInicio);
+            row.set('TipoTasa', tipoTasa || 'EA');
             await row.save();
             return NextResponse.json({ success: true });
         }
@@ -131,6 +134,39 @@ export async function PUT(req: Request) {
         console.error('Error updating credit:', error);
         return NextResponse.json(
             { error: 'Error al actualizar crédito' },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PATCH(req: Request) {
+    try {
+        const body = await req.json();
+        const { id, saldoActual } = body;
+
+        if (!id || saldoActual === undefined) {
+            return NextResponse.json({ error: 'ID y saldoActual son requeridos' }, { status: 400 });
+        }
+
+        const doc = await getDoc();
+        const sheet = doc.sheetsByTitle['Creditos_DB'];
+
+        if (!sheet) return NextResponse.json({ error: 'Hoja no encontrada' }, { status: 404 });
+
+        const rows = await sheet.getRows();
+        const row = rows.find((r) => r.get('ID') === id);
+
+        if (row) {
+            row.set('SaldoActual', saldoActual);
+            await row.save();
+            return NextResponse.json({ success: true, newSaldo: saldoActual });
+        }
+
+        return NextResponse.json({ error: 'Crédito no encontrado' }, { status: 404 });
+    } catch (error) {
+        console.error('Error updating credit balance:', error);
+        return NextResponse.json(
+            { error: 'Error al actualizar saldo del crédito' },
             { status: 500 }
         );
     }

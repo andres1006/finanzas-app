@@ -4,6 +4,16 @@ import { getDoc } from '@/lib/googleSheets';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+function parseSafeNumber(val: any): number {
+    if (!val || val === 'NaN') return 0;
+    if (typeof val === 'number') return val;
+    let str = String(val).replace(/[$ \s]/g, '');
+    str = str.replace(/\./g, '');
+    str = str.replace(/,/g, '.');
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+}
+
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
@@ -30,8 +40,8 @@ export async function GET(req: Request) {
                 id: row.get('ID'),
                 mes: row.get('Mes'),
                 concepto: row.get('Concepto'),
-                montoEstimado: parseFloat(row.get('MontoEstimado') || '0'),
-                montoPagado: parseFloat(row.get('MontoPagado') || '0'),
+                montoEstimado: parseSafeNumber(row.get('MontoEstimado')),
+                montoPagado: parseSafeNumber(row.get('MontoPagado')),
                 categoria: row.get('Categoria'),
                 estado: row.get('Estado') || 'PENDIENTE',
                 diaSugerido: parseInt(row.get('DiaSugerido') || '1'),
@@ -153,21 +163,21 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: 'Item no encontrado' }, { status: 404 });
         }
 
-        let newEstimado = parseFloat(row.get('MontoEstimado') || '0');
-        let newPagado = parseFloat(row.get('MontoPagado') || '0');
+        let newEstimado = parseSafeNumber(row.get('MontoEstimado'));
+        let newPagado = parseSafeNumber(row.get('MontoPagado'));
 
         // Actualizar Monto Estimado
         if (updates.montoEstimado !== undefined || updates.MontoEstimado !== undefined) {
-            newEstimado = parseFloat(updates.montoEstimado || updates.MontoEstimado);
+            newEstimado = parseSafeNumber(updates.montoEstimado || updates.MontoEstimado);
             row.set('MontoEstimado', newEstimado.toString());
         }
 
         // Manejar Abono (Suma al pagado)
         if (updates.abono !== undefined) {
-            newPagado += parseFloat(updates.abono);
+            newPagado += parseSafeNumber(updates.abono);
             row.set('MontoPagado', newPagado.toString());
         } else if (updates.montoPagado !== undefined || updates.MontoPagado !== undefined) {
-            newPagado = parseFloat(updates.montoPagado || updates.MontoPagado);
+            newPagado = parseSafeNumber(updates.montoPagado || updates.MontoPagado);
             row.set('MontoPagado', newPagado.toString());
         }
 

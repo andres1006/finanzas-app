@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CreditCard, Plus, Trash2, Calculator, TrendingDown, DollarSign, Calendar, Pencil } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -19,10 +18,12 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     Credito,
+    Transaccion,
     calcularAmortizacion,
     calcularAhorroConPagoExtra,
     PagoAmortizacion
 } from '@/lib/financeUtils';
+import { CreditCard, Plus, Trash2, Calculator, TrendingDown, DollarSign, Calendar, Pencil, TrendingUp, History } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -44,10 +45,19 @@ export default function CreditsManager() {
         tipoTasa: 'EA' as 'Mensual' | 'EA',
     });
 
+    const [transactions, setTransactions] = useState<Transaccion[]>([]);
+
     // Detalle y Simulación
     const [selectedCredit, setSelectedCredit] = useState<Credito | null>(null);
     const [extraPayment, setExtraPayment] = useState('');
     const [simulationResult, setSimulationResult] = useState<{ ahorro: number, meses: number } | null>(null);
+
+    // Abono
+    const [abonoDialogOpen, setAbonoDialogOpen] = useState(false);
+    const [abonoValue, setAbonoValue] = useState('');
+
+    // Tabs
+    const [activeTab, setActiveTab] = useState<'amortizacion' | 'historial'>('amortizacion');
 
     const fetchCredits = async () => {
         try {
@@ -65,8 +75,21 @@ export default function CreditsManager() {
         }
     };
 
+    const fetchTransactions = async () => {
+        try {
+            const res = await fetch('/api/transactions');
+            if (res.ok) {
+                const data = await res.json();
+                setTransactions(data);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     useEffect(() => {
         fetchCredits();
+        fetchTransactions();
     }, []);
 
     const handleUpdate = async () => {
@@ -164,6 +187,58 @@ export default function CreditsManager() {
             toast.success('Eliminado');
             fetchCredits();
             if (selectedCredit?.id === id) setSelectedCredit(null);
+        }
+    };
+
+    const handleAddAbono = async () => {
+        if (!selectedCredit || !abonoValue) return;
+
+        const amount = Number(abonoValue);
+        if (amount <= 0 || amount > selectedCredit.saldoActual) {
+            toast.warning('Abono inválido. Verifica el monto.');
+            return;
+        }
+
+        try {
+            const newSaldo = selectedCredit.saldoActual - amount;
+
+            const res = await fetch('/api/credits', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedCredit.id,
+                    saldoActual: newSaldo
+                }),
+            });
+
+            if (res.ok) {
+                const fecha = new Date();
+                const transactionData = {
+                    Fecha: fecha.toISOString().split('T')[0],
+                    Día: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][fecha.getDay()],
+                    Tipo: 'Abono Deuda',
+                    Categoría: 'Deudas',
+                    Descripción: `Abono - ${selectedCredit.nombre}`,
+                    Monto: amount,
+                    Usuario: 'Andrés',
+                };
+
+                await fetch('/api/transactions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(transactionData),
+                });
+
+                toast.success('Abono registrado con éxito');
+                setAbonoDialogOpen(false);
+                setAbonoValue('');
+
+                setSelectedCredit({ ...selectedCredit, saldoActual: newSaldo });
+                fetchCredits();
+                fetchTransactions();
+            }
+        } catch (error) {
+            toast.error('Error al registrar abono');
         }
     };
 
@@ -337,34 +412,131 @@ export default function CreditsManager() {
                                     </div>
                                 </div>
 
-                                {/* Tabla Amortización */}
-                                <h4 className="font-medium mb-3 flex items-center gap-2">
-                                    <Calendar className="h-4 w-4" /> Proyección de Pagos
-                                </h4>
-                                <ScrollArea className="h-[300px] border rounded-md">
-                                    <table className="w-full text-sm">
-                                        <thead className="bg-muted sticky top-0">
-                                            <tr>
-                                                <th className="p-2 text-left">Mes</th>
-                                                <th className="p-2 text-right">Cuota</th>
-                                                <th className="p-2 text-right">Interés</th>
-                                                <th className="p-2 text-right">Capital</th>
-                                                <th className="p-2 text-right">Saldo</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {amortizacionTable.map((row) => (
-                                                <tr key={row.mes} className="border-b last:border-0 hover:bg-muted/50">
-                                                    <td className="p-2 text-left font-medium">{row.mes}</td>
-                                                    <td className="p-2 text-right">{formatCurrency(row.pagoTotal)}</td>
-                                                    <td className="p-2 text-right text-orange-600">{formatCurrency(row.interes)}</td>
-                                                    <td className="p-2 text-right text-emerald-600">{formatCurrency(row.capital)}</td>
-                                                    <td className="p-2 text-right text-muted-foreground">{formatCurrency(row.saldoRestante)}</td>
+                                {/* Progress Bar & Actions */}
+                                <div className="mb-6 space-y-4">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                                        <div>
+                                            <div className="text-sm font-medium text-muted-foreground mb-1">Progreso de Pago</div>
+                                            <div className="text-2xl font-bold tracking-tight">
+                                                {selectedCredit.montoTotal > 0 ? Math.round(((selectedCredit.montoTotal - selectedCredit.saldoActual) / selectedCredit.montoTotal) * 100) : 0}%
+                                            </div>
+                                        </div>
+
+                                        <Dialog open={abonoDialogOpen} onOpenChange={setAbonoDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 w-full sm:w-auto">
+                                                    <TrendingUp className="h-4 w-4" /> Ingresar Abono
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Ingresar Abono a {selectedCredit.nombre}</DialogTitle>
+                                                    <DialogDescription>
+                                                        Registra un pago para reducir el saldo actual de tu deuda. Esto se guardará en tu historial de transacciones.
+                                                    </DialogDescription>
+                                                </DialogHeader>
+                                                <div className="grid gap-4 py-4">
+                                                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 flex justify-between items-center">
+                                                        <span className="text-sm font-medium text-slate-600">Saldo Pendiente:</span>
+                                                        <span className="text-sm font-bold text-slate-800">{formatCurrency(selectedCredit.saldoActual)}</span>
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <Label>Monto a Abonar</Label>
+                                                        <Input
+                                                            type="number"
+                                                            value={abonoValue}
+                                                            onChange={e => setAbonoValue(e.target.value)}
+                                                            placeholder="Ej: 500000"
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button variant="outline" onClick={() => setAbonoDialogOpen(false)}>Cancelar</Button>
+                                                    <Button onClick={handleAddAbono} className="bg-emerald-600 hover:bg-emerald-700 text-white">Confirmar Abono</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    <div className="relative h-2.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="absolute top-0 left-0 h-full bg-emerald-500 transition-all duration-500"
+                                            style={{ width: `${Math.max(0, Math.min(100, ((selectedCredit.montoTotal - selectedCredit.saldoActual) / selectedCredit.montoTotal) * 100))}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Tabs for Amortización vs Historial */}
+                                <div className="flex gap-4 mb-4 border-b">
+                                    <button
+                                        className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'amortizacion' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        onClick={() => setActiveTab('amortizacion')}
+                                    >
+                                        <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> Proyección</span>
+                                    </button>
+                                    <button
+                                        className={`pb-2 text-sm font-medium transition-colors ${activeTab === 'historial' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                                        onClick={() => setActiveTab('historial')}
+                                    >
+                                        <span className="flex items-center gap-2"><History className="h-4 w-4" /> Historial de Abonos</span>
+                                    </button>
+                                </div>
+
+                                {activeTab === 'amortizacion' ? (
+                                    <ScrollArea className="h-[300px] border rounded-md">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted sticky top-0">
+                                                <tr>
+                                                    <th className="p-2 text-left">Mes</th>
+                                                    <th className="p-2 text-right">Cuota</th>
+                                                    <th className="p-2 text-right">Interés</th>
+                                                    <th className="p-2 text-right">Capital</th>
+                                                    <th className="p-2 text-right">Saldo</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </ScrollArea>
+                                            </thead>
+                                            <tbody>
+                                                {amortizacionTable.map((row) => (
+                                                    <tr key={row.mes} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                                        <td className="p-2 text-left font-medium">{row.mes}</td>
+                                                        <td className="p-2 text-right">{formatCurrency(row.pagoTotal)}</td>
+                                                        <td className="p-2 text-right text-orange-600">{formatCurrency(row.interes)}</td>
+                                                        <td className="p-2 text-right text-emerald-600">{formatCurrency(row.capital)}</td>
+                                                        <td className="p-2 text-right text-muted-foreground">{formatCurrency(row.saldoRestante)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </ScrollArea>
+                                ) : (
+                                    <ScrollArea className="h-[300px] border rounded-md">
+                                        {transactions.filter(t => t.tipo === 'Abono Deuda' && t.descripcion.includes(selectedCredit.nombre)).length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground h-full min-h-[200px]">
+                                                <History className="h-10 w-10 mb-3 opacity-20" />
+                                                <p>No hay abonos registrados para este crédito.</p>
+                                            </div>
+                                        ) : (
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-muted sticky top-0">
+                                                    <tr>
+                                                        <th className="p-2 text-left">Fecha</th>
+                                                        <th className="p-2 text-right">Monto Abonado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {transactions
+                                                        .filter(t => t.tipo === 'Abono Deuda' && t.descripcion.includes(selectedCredit.nombre))
+                                                        .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+                                                        .map((txn) => (
+                                                            <tr key={txn.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                                                <td className="p-2 text-left text-muted-foreground">{txn.fecha}</td>
+                                                                <td className="p-2 text-right font-medium text-emerald-600">{formatCurrency(txn.monto)}</td>
+                                                            </tr>
+                                                        ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </ScrollArea>
+                                )}
                             </CardContent>
                         </Card>
 

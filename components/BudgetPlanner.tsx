@@ -17,7 +17,8 @@ import {
     CalendarX,
     Check,
     TrendingUp,
-    ChevronRight
+    ChevronRight,
+    XCircle
 } from 'lucide-react';
 import {
     Dialog,
@@ -80,7 +81,7 @@ export default function BudgetPlanner({ transactions, onTransactionAdded, month 
     const fetchItems = async () => {
         try {
             setLoading(true);
-            const res = await fetch(`/api/budget/plan?month=${targetMonth}`);
+            const res = await fetch(`/api/budget/plan?month=${targetMonth}&t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 setItems(data);
@@ -278,6 +279,27 @@ export default function BudgetPlanner({ transactions, onTransactionAdded, month 
         }
     };
 
+    const handleUndoComplete = async (id: string) => {
+        try {
+            const res = await fetch('/api/budget/plan', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id,
+                    montoPagado: 0
+                }),
+            });
+
+            if (res.ok) {
+                toast.success('Gasto desmarcado');
+                fetchItems();
+                router.refresh();
+            }
+        } catch (error) {
+            toast.error('Error al deshacer completado');
+        }
+    };
+
     // Eliminar item de planeación
     const handleDeleteItem = async (id: string) => {
         if (!confirm('¿Eliminar este gasto de la planeación?')) return;
@@ -414,7 +436,7 @@ export default function BudgetPlanner({ transactions, onTransactionAdded, month 
                                 const isPaid = (item.montoPagado || 0) >= item.montoEstimado;
 
                                 return (
-                                    <div key={item.id} className="p-4 hover:bg-slate-50 transition-colors group">
+                                    <div key={item.id} className={`p-4 hover:bg-slate-50 transition-colors group ${isPaid ? 'bg-slate-50/50 opacity-80' : ''}`}>
                                         <div className="flex items-center gap-4">
                                             <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isPaid ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
                                                 {isPaid ? <CheckCircle2 className="h-6 w-6" /> : <div className="text-xs font-bold">{item.diaSugerido}</div>}
@@ -422,7 +444,9 @@ export default function BudgetPlanner({ transactions, onTransactionAdded, month 
 
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-start mb-1">
-                                                    <h4 className="font-semibold text-slate-800 truncate">{item.concepto}</h4>
+                                                    <h4 className={`font-semibold truncate ${isPaid ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
+                                                        {item.concepto}
+                                                    </h4>
                                                     <div className="text-right">
                                                         {editingId === item.id ? (
                                                             <div className="flex items-center gap-1">
@@ -460,34 +484,46 @@ export default function BudgetPlanner({ transactions, onTransactionAdded, month 
                                             </div>
 
                                             <div className="flex items-center gap-1 transition-opacity">
-                                                {!isPaid && (
+                                                {isPaid ? (
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
-                                                        title="Completar pago exacto"
-                                                        onClick={() => handleMarkAsComplete(item.id)}
+                                                        className="h-8 w-8 text-slate-400 hover:text-amber-600 hover:bg-amber-50"
+                                                        title="Deshacer completado"
+                                                        onClick={() => handleUndoComplete(item.id)}
                                                     >
-                                                        <CheckCircle2 className="h-4 w-4" />
+                                                        <XCircle className="h-4 w-4" />
                                                     </Button>
+                                                ) : (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-emerald-600 hover:bg-emerald-50"
+                                                            title="Completar pago exacto"
+                                                            onClick={() => handleMarkAsComplete(item.id)}
+                                                        >
+                                                            <CheckCircle2 className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"
+                                                            title="Hacer un abono"
+                                                            onClick={() => { setAbonoId(item.id); setAbonoValue(''); }}
+                                                        >
+                                                            <TrendingUp className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
+                                                            onClick={() => handleDeleteItem(item.id)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </>
                                                 )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-indigo-600 hover:bg-indigo-50"
-                                                    title="Hacer un abono"
-                                                    onClick={() => { setAbonoId(item.id); setAbonoValue(''); }}
-                                                >
-                                                    <TrendingUp className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50"
-                                                    onClick={() => handleDeleteItem(item.id)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
                                             </div>
                                         </div>
                                     </div>
