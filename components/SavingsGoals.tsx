@@ -1,6 +1,6 @@
-import AddSavingsModal from './AddSavingsModal';
 'use client';
 
+import AddSavingsModal from './AddSavingsModal';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -243,21 +243,21 @@ export default function SavingsGoals({ goals, onGoalsChange }: SavingsGoalsProps
                                                 {progreso.toFixed(0)}%
                                             </div>
                                             <div className="text-xs text-muted-foreground">Completado</div>
-<div className="mt-2"><AddSavingsModal goalId={meta.id} goalName={meta.nombre} onRefresh={onGoalsChange} /></div>
+                                            <div className="mt-2"><AddSavingsModal goalId={meta.id} goalName={meta.nombre} onRefresh={onGoalsChange} /></div>
                                         </div>
                                     </div>
                                     {/* Medallas / Gamificación */}
                                     <div className="flex gap-2 mt-4">
-                                        <div className={`p-1.5 rounded-full border transition-all duration-500 ${progreso >= 25 ? "bg-amber-100 border-amber-200 text-amber-700 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Bronce (25%)">
+                                        <div className={`p-1.5 rounded-full border transition-all duration-500 \${progreso >= 25 ? "bg-amber-100 border-amber-200 text-amber-700 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Bronce (25%)">
                                             <Medal className="h-5 w-5" />
                                         </div>
-                                        <div className={`p-1.5 rounded-full border transition-all duration-500 ${progreso >= 50 ? "bg-slate-100 border-slate-200 text-slate-600 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Plata (50%)">
+                                        <div className={`p-1.5 rounded-full border transition-all duration-500 \${progreso >= 50 ? "bg-slate-100 border-slate-200 text-slate-600 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Plata (50%)">
                                             <Medal className="h-5 w-5" />
                                         </div>
-                                        <div className={`p-1.5 rounded-full border transition-all duration-500 ${progreso >= 75 ? "bg-yellow-100 border-yellow-200 text-yellow-700 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Oro (75%)">
+                                        <div className={`p-1.5 rounded-full border transition-all duration-500 \${progreso >= 75 ? "bg-yellow-100 border-yellow-200 text-yellow-700 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Oro (75%)">
                                             <Medal className="h-5 w-5" />
                                         </div>
-                                        <div className={`p-1.5 rounded-full border transition-all duration-500 ${progreso >= 100 ? "bg-indigo-100 border-indigo-200 text-indigo-700 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Platino (100%)">
+                                        <div className={`p-1.5 rounded-full border transition-all duration-500 \${progreso >= 100 ? "bg-indigo-100 border-indigo-200 text-indigo-700 opacity-100 scale-110 shadow-sm" : "bg-gray-50 border-gray-100 text-gray-300 opacity-40 grayscale"}`} title="Platino (100%)">
                                             <Trophy className="h-5 w-5" />
                                         </div>
                                     </div>
@@ -303,7 +303,7 @@ export default function SavingsGoals({ goals, onGoalsChange }: SavingsGoalsProps
                                                 <Calendar className="h-3 w-3" />
                                                 Días Restantes
                                             </div>
-                                            <div className={`text-lg font-bold ${diasRestantes < 30 ? 'text-red-600 dark:text-red-400' :
+                                            <div className={`text-lg font-bold \${diasRestantes < 30 ? 'text-red-600 dark:text-red-400' :
                                                 diasRestantes < 90 ? 'text-yellow-600 dark:text-yellow-400' :
                                                     'text-emerald-600 dark:text-emerald-400'
                                                 }`}>

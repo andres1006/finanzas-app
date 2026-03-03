@@ -39,7 +39,7 @@ export default function AddSavingsModal({ goalId, goalName, onRefresh }: { goalI
 
             if (!res.ok) throw new Error();
 
-            toast.success(\`Ahorro de \${amount} agregado a \${goalName}\`);
+            toast.success(`Ahorro de ${amount} agregado a ${goalName}`);
             setOpen(false);
             setAmount('');
             onRefresh();
