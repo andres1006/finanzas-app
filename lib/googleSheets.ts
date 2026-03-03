@@ -12,3 +12,10 @@ export const getDoc = async () => {
     await doc.loadInfo();
     return doc;
 };
+
+export const getSheet = async (title: string) => {
+  const doc = await getDoc();
+  const sheet = doc.sheetsByTitle[title];
+  if (!sheet) throw new Error(\`Sheet "\${title}" not found\`);
+  return sheet;
+};
