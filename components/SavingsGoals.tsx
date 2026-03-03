@@ -1,3 +1,4 @@
+import AddSavingsModal from './AddSavingsModal';
 'use client';
 
 import { useState } from 'react';
@@ -242,6 +243,7 @@ export default function SavingsGoals({ goals, onGoalsChange }: SavingsGoalsProps
                                                 {progreso.toFixed(0)}%
                                             </div>
                                             <div className="text-xs text-muted-foreground">Completado</div>
+<div className="mt-2"><AddSavingsModal goalId={meta.id} goalName={meta.nombre} onRefresh={onGoalsChange} /></div>
                                         </div>
                                     </div>
                                     {/* Medallas / Gamificación */}
