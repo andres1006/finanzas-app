@@ -11,16 +11,28 @@ export async function POST(req: Request) {
         if (!creditSheet) throw new Error('Creditos_DB not found');
 
         const rows = await creditSheet.getRows();
+        // Buscamos por ID (exacto) o por id (minúsculas)
         const row = rows.find(r => r.get('ID') === creditId || r.get('id') === creditId);
         
         if (row) {
-            const currentActual = parseFloat(row.get('Saldo_Actual') || row.get('Saldo Actual') || '0');
+            // Intentar leer saldo actual de varias formas comunes
+            const currentActualStr = row.get('Saldo_Actual') || row.get('Saldo Actual') || row.get('Saldo_actual') || '0';
+            const currentActual = parseFloat(String(currentActualStr).replace(/[$.]/g, '').replace(',', '.'));
+            
             const newActual = Math.max(0, currentActual - amount);
             
+            // Log para debuggear
+            console.log(`Updating credit ${creditId}: ${currentActual} -> ${newActual}`);
+
+            // Intentar guardar en la columna correcta
             if (row.get('Saldo_Actual') !== undefined) row.set('Saldo_Actual', newActual);
             else if (row.get('Saldo Actual') !== undefined) row.set('Saldo Actual', newActual);
+            else if (row.get('saldo_actual') !== undefined) row.set('saldo_actual', newActual);
             
             await row.save();
+            console.log('Credit row saved successfully');
+        } else {
+            console.warn(`Credit row with ID ${creditId} not found`);
         }
 
         // 2. Registrar en historial Abonos_Creditos_DB
@@ -30,7 +42,7 @@ export async function POST(req: Request) {
                 Fecha: new Date().toISOString().split('T')[0],
                 Credito_ID: creditId,
                 Monto: amount,
-                Usuario: user
+                Usuario: user || 'Andrés'
             });
         }
 
@@ -46,7 +58,7 @@ export async function POST(req: Request) {
                 Categoría: 'Créditos',
                 Descripción: `Abono a: ${row?.get('Nombre') || 'Crédito'}`,
                 Monto: amount,
-                Usuario: user
+                Usuario: user || 'Andrés'
             });
         }
 
