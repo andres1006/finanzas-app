@@ -12,18 +12,30 @@ export async function GET() {
 
         const rows = await sheet.getRows();
         const goals = rows.map((row) => {
-            // Log para debuggear nombres de columnas reales
             const rawData = row.toObject();
             
-            return {
-                id: rawData.ID || rawData.id || '',
-                nombre: rawData.Nombre || rawData.nombre || 'Sin nombre',
-                montoObjetivo: parseFloat(rawData.Monto_Objetivo || rawData.Objetivo || rawData.montoObjetivo || '0'),
-                montoActual: parseFloat(rawData.Monto_Actual || rawData.Actual || rawData.montoActual || '0'),
-                fechaLimite: rawData.Fecha_Limite || rawData.Limite || rawData.fechaLimite || '',
-                prioridad: rawData.Prioridad || rawData.prioridad || 'Media',
-                usuario: rawData.Usuario || rawData.usuario || 'Andrés',
+            // Debug logs to see what's actually coming from the sheet
+            console.log('Row raw data:', rawData);
+
+            // Mapping with case-insensitive fallback and underscore tolerance
+            const getValue = (keys: string[]) => {
+                for (const key of keys) {
+                    if (rawData[key] !== undefined) return rawData[key];
+                }
+                return undefined;
             };
+
+            const goal = {
+                id: getValue(['ID', 'id', 'Id']) || `GOAL-${Math.random().toString(36).substr(2, 9)}`,
+                nombre: getValue(['Nombre', 'nombre', 'Name', 'Meta']) || 'Sin nombre',
+                montoObjetivo: parseFloat(getValue(['Monto_Objetivo', 'Objetivo', 'montoObjetivo', 'objetivo', 'Monto Objetivo', 'MontoObjetivo']) || '0'),
+                montoActual: parseFloat(getValue(['Monto_Actual', 'Actual', 'montoActual', 'actual', 'Monto Actual', 'MontoActual']) || '0'),
+                fechaLimite: getValue(['Fecha_Limite', 'Limite', 'fechaLimite', 'limite', 'Fecha Limite', 'Fecha_limite']) || '',
+                prioridad: getValue(['Prioridad', 'prioridad', 'Priority']) || 'Media',
+                usuario: getValue(['Usuario', 'usuario', 'User']) || 'Andrés',
+            };
+
+            return goal;
         });
 
         return NextResponse.json(goals);
@@ -40,27 +52,29 @@ export async function POST(req: Request) {
         const sheet = doc.sheetsByTitle['Metas_DB'];
         if (!sheet) return NextResponse.json({ error: 'Sheet Metas_DB not found' }, { status: 404 });
 
-        // Intentamos detectar las columnas para usar el nombre exacto
         await sheet.loadHeaderRow();
         const headers = sheet.headerValues;
         
         const newRow: any = {};
-        if (headers.includes('ID')) newRow.ID = `GOAL-${Date.now()}`;
-        if (headers.includes('Nombre')) newRow.Nombre = body.nombre;
-        if (headers.includes('Monto_Objetivo')) newRow.Monto_Objetivo = body.montoObjetivo;
-        if (headers.includes('Monto_Actual')) newRow.Monto_Actual = body.montoActual;
-        if (headers.includes('Fecha_Limite')) newRow.Fecha_Limite = body.fechaLimite;
-        if (headers.includes('Prioridad')) newRow.Prioridad = body.prioridad;
-        if (headers.includes('Usuario')) newRow.Usuario = body.usuario || 'Andrés';
+        
+        // Helper to find correct header name regardless of case/format
+        const findHeader = (names: string[]) => headers.find(h => names.some(n => n.toLowerCase() === h.toLowerCase().replace(/_/g, ' ')));
 
-        // Si los headers son minúsculas
-        if (headers.includes('id')) newRow.id = `GOAL-${Date.now()}`;
-        if (headers.includes('nombre')) newRow.nombre = body.nombre;
-        if (headers.includes('objetivo')) newRow.objetivo = body.montoObjetivo;
-        if (headers.includes('actual')) newRow.actual = body.montoActual;
-        if (headers.includes('limite')) newRow.limite = body.fechaLimite;
-        if (headers.includes('prioridad')) newRow.prioridad = body.prioridad;
-        if (headers.includes('usuario')) newRow.usuario = body.usuario || 'Andrés';
+        const idHeader = findHeader(['ID', 'id']);
+        const nombreHeader = findHeader(['Nombre', 'Meta', 'nombre']);
+        const objHeader = findHeader(['Monto_Objetivo', 'Objetivo', 'monto_objetivo']);
+        const actHeader = findHeader(['Monto_Actual', 'Actual', 'monto_actual']);
+        const limHeader = findHeader(['Fecha_Limite', 'Limite', 'fecha_limite']);
+        const prioHeader = findHeader(['Prioridad', 'prioridad']);
+        const userHeader = findHeader(['Usuario', 'usuario']);
+
+        if (idHeader) newRow[idHeader] = `GOAL-${Date.now()}`;
+        if (nombreHeader) newRow[nombreHeader] = body.nombre;
+        if (objHeader) newRow[objHeader] = body.montoObjetivo;
+        if (actHeader) newRow[actHeader] = body.montoActual;
+        if (limHeader) newRow[limHeader] = body.fechaLimite;
+        if (prioHeader) newRow[prioHeader] = body.prioridad;
+        if (userHeader) newRow[userHeader] = body.usuario || 'Andrés';
 
         await sheet.addRow(newRow);
 
