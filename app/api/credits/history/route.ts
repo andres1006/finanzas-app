@@ -17,25 +17,46 @@ export async function GET(req: Request) {
 
         const rows = await sheet.getRows();
         
-        // Log para ver qué datos están llegando realmente
-        console.log(`Buscando historial para crédito: ${creditId}. Total filas en historial: ${rows.length}`);
+        // Log exhaustivo para debuggear en el servidor
+        console.log('--- DEBUG CREDITS HISTORY ---');
+        console.log('Target Credit ID:', creditId);
+        
+        if (rows.length > 0) {
+            console.log('Available Columns in History Sheet:', Object.keys(rows[0].toObject()));
+        }
 
         const history = rows
             .filter(row => {
-                const idInSheet = String(row.get('Credito_ID') || row.get('id_credito') || row.get('ID_Credito') || '').trim();
+                const rawObj = row.toObject();
+                // Buscamos el ID en cualquier columna que se parezca a Credito_ID
+                const idInSheet = String(
+                    rawObj['Credito_ID'] || 
+                    rawObj['id_credito'] || 
+                    rawObj['ID_Credito'] || 
+                    rawObj['ID'] || 
+                    rawObj['id'] || 
+                    ''
+                ).trim();
+                
                 const targetId = String(creditId).trim();
+                const isMatch = idInSheet === targetId;
                 
-                // Debug individual de cada fila si es necesario
-                // console.log(`Comparando sheet[${idInSheet}] con target[${targetId}]`);
+                if (isMatch) {
+                    console.log(`MATCH FOUND: row ID [${idInSheet}] matches target [${targetId}]`);
+                }
                 
-                return idInSheet === targetId;
+                return isMatch;
             })
             .map(row => {
-                const rawDate = row.get('Fecha') || '';
+                const rawObj = row.toObject();
+                const rawDate = rawObj['Fecha'] || rawObj['fecha'] || '';
+                const rawMonto = rawObj['Monto'] || rawObj['monto'] || '0';
+                const rawUser = rawObj['Usuario'] || rawObj['usuario'] || 'Andrés';
+
                 return {
                     fecha: rawDate,
-                    monto: parseFloat(String(row.get('Monto') || '0').replace(/[$.]/g, '').replace(',', '.')),
-                    usuario: row.get('Usuario') || 'Andrés'
+                    monto: parseFloat(String(rawMonto).replace(/[$.]/g, '').replace(',', '.')),
+                    usuario: rawUser
                 };
             })
             .sort((a, b) => {
@@ -46,7 +67,9 @@ export async function GET(req: Request) {
                 }
             });
 
-        console.log(`Historial encontrado: ${history.length} abonos.`);
+        console.log(`Total items found for ${creditId}: ${history.length}`);
+        console.log('-----------------------------');
+
         return NextResponse.json(history);
     } catch (error) {
         console.error('Error fetching credit history:', error);
