@@ -8,18 +8,34 @@ export async function GET() {
         if (!sheet) return NextResponse.json([]);
 
         const rows = await sheet.getRows();
+        
+        // --- DEBUG LOGS FOR PATRONCITO ---
+        console.log('--- DEBUG CREDITS DATA ---');
+        rows.forEach((row, i) => {
+            console.log(`Row ${i} raw object:`, row.toObject());
+        });
+
         const credits = rows.map((row) => {
             const rawData = row.toObject();
+            
+            // Helper to find value by flexible name
+            const getVal = (patterns: string[], defaultVal: any) => {
+                const key = Object.keys(rawData).find(k => 
+                    patterns.some(p => k.toLowerCase().includes(p.toLowerCase()))
+                );
+                return key ? rawData[key] : defaultVal;
+            };
+
             return {
-                id: rawData.ID || rawData.id || '',
-                nombre: rawData.Nombre || rawData.nombre || 'Sin nombre',
-                montoTotal: parseFloat(rawData.Saldo_Total || rawData.Monto_Total || rawData.montoTotal || '0'),
-                saldoActual: parseFloat(rawData.Saldo_Actual || rawData.Saldo_Actual || rawData.saldoActual || '0'),
-                tasaInteres: parseFloat(rawData.Tasa_Interes || rawData.tasaInteres || '0'),
-                pagoMinimo: parseFloat(rawData.Pago_Minimo || rawData.pagoMinimo || '0'),
-                fechaCorte: rawData.Fecha_Corte || rawData.fechaCorte || '1',
-                plazoMeses: parseInt(rawData.Plazo_Meses || rawData.plazoMeses || '12'),
-                usuario: rawData.Usuario || rawData.usuario || 'Andrés',
+                id: getVal(['id'], ''),
+                nombre: getVal(['nombre', 'meta', 'credito'], 'Sin nombre'),
+                montoTotal: parseFloat(String(getVal(['total', 'monto'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                saldoActual: parseFloat(String(getVal(['actual', 'saldo'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                tasaInteres: parseFloat(String(getVal(['tasa', 'interes'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                pagoMinimo: parseFloat(String(getVal(['pago', 'minimo'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                fechaCorte: String(getVal(['corte', 'fecha'], '1')),
+                plazoMeses: parseInt(String(getVal(['plazo', 'meses'], '12'))),
+                usuario: getVal(['usuario', 'user'], 'Andrés'),
             };
         });
 
@@ -35,23 +51,38 @@ export async function POST(req: Request) {
         const body = await req.json();
         const doc = await getDoc();
         const sheet = doc.sheetsByTitle['Creditos_DB'];
-        if (!sheet) return NextResponse.json({ error: 'Sheet Creditos_DB not found' }, { status: 404 });
+        if (!sheet) return NextResponse.json({ error: 'Sheet not found' }, { status: 404 });
 
-        await sheet.addRow({
-            ID: `CRED-${Date.now()}`,
-            Nombre: body.nombre,
-            Saldo_Total: body.montoTotal,
-            Saldo_Actual: body.saldoActual,
-            Tasa_Interes: body.tasaInteres,
-            Pago_Minimo: body.pagoMinimo || 0,
-            Fecha_Corte: body.fechaCorte,
-            Plazo_Meses: body.plazoMeses,
-            Usuario: body.usuario || 'Andrés'
+        await sheet.loadHeaderRow();
+        const headers = sheet.headerValues;
+        const findH = (p: string) => headers.find(h => h.toLowerCase().includes(p.toLowerCase()));
+
+        const newRow: any = {};
+        const colMap: Record<string, any> = {
+            'id': `CRED-${Date.now()}`,
+            'nombre': body.nombre,
+            'total': body.montoTotal,
+            'actual': body.saldoActual,
+            'tasa': body.tasaInteres,
+            'minimo': body.pagoMinimo || 0,
+            'corte': body.fechaCorte,
+            'plazo': body.plazoMeses,
+            'usuario': body.usuario || 'Andrés'
+        };
+
+        headers.forEach(h => {
+            const hLower = h.toLowerCase();
+            for (const [key, val] of Object.entries(colMap)) {
+                if (hLower.includes(key)) {
+                    newRow[h] = val;
+                    break;
+                }
+            }
         });
 
+        await sheet.addRow(newRow);
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error saving credit:', error);
-        return NextResponse.json({ error: 'Error saving credit' }, { status: 500 });
+        return NextResponse.json({ error: 'Error saving' }, { status: 500 });
     }
 }
