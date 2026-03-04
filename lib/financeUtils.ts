@@ -17,12 +17,9 @@ export type Transaccion = {
 
 /**
  * Calcula el plan de pago usando el método Bola de Nieve
- * Ordena las deudas por saldo menor primero y asigna el dinero extra
  */
 export const calcularBolaDeNieve = (deudas: Deuda[], dineroExtra: number) => {
-    // Ordenar por saldo menor primero (Bola de Nieve)
     const ordenadas = [...deudas].sort((a, b) => a.saldo - b.saldo);
-
     const planDePago: string[] = [];
     let capitalDisponible = dineroExtra;
 
@@ -98,21 +95,13 @@ export type Credito = {
     nombre: string;
     montoTotal: number;
     saldoActual: number;
-    tasaInteres: number; // % anual o mensual según tipoTasa
+    tasaInteres: number;
     plazoMeses: number;
     pagoMensual: number;
     fechaInicio: string;
+    fechaCorte?: string;
     tipoTasa?: 'Mensual' | 'EA';
-};
-
-export type Inversion = {
-    id: string;
-    nombre: string;
-    tipo: 'CDT' | 'Acciones' | 'Fondos' | 'Crypto' | 'Otro';
-    montoInicial: number;
-    valorActual: number;
-    rendimientoEsperado: number; // % anual
-    fechaInicio: string;
+    usuario?: 'Andrés' | 'Mariana';
 };
 
 export type MetaAhorro = {
@@ -122,6 +111,7 @@ export type MetaAhorro = {
     montoActual: number;
     fechaLimite: string;
     prioridad: 'Alta' | 'Media' | 'Baja';
+    usuario?: 'Andrés' | 'Mariana';
 };
 
 export type PagoAmortizacion = {
@@ -144,9 +134,6 @@ export type DatosMensuales = {
 // FUNCIONES DE ANÁLISIS MENSUAL
 // ============================================
 
-/**
- * Agrupa transacciones por mes
- */
 export const agruparPorMes = (transacciones: Transaccion[]): DatosMensuales[] => {
     const mesesMap = new Map<string, DatosMensuales>();
 
@@ -174,25 +161,17 @@ export const agruparPorMes = (transacciones: Transaccion[]): DatosMensuales[] =>
         }
     });
 
-    // Calcular balance
     mesesMap.forEach(datos => {
         datos.balance = datos.ingresos - datos.gastos - datos.abonosDeuda;
     });
 
-    // Ordenar por mes (más reciente primero)
     return Array.from(mesesMap.values()).sort((a, b) => b.mes.localeCompare(a.mes));
 };
 
-/**
- * Filtra transacciones por mes específico
- */
 export const filtrarPorMes = (transacciones: Transaccion[], mes: string): Transaccion[] => {
     return transacciones.filter(t => t.fecha.startsWith(mes));
 };
 
-/**
- * Calcula el cambio porcentual entre dos meses
- */
 export const calcularCambioMensual = (mesActual: DatosMensuales, mesAnterior: DatosMensuales | null) => {
     if (!mesAnterior) {
         return { ingresos: 0, gastos: 0, balance: 0 };
@@ -210,13 +189,6 @@ export const calcularCambioMensual = (mesActual: DatosMensuales, mesAnterior: Da
     };
 };
 
-// ============================================
-// FUNCIONES DE CRÉDITOS
-// ============================================
-
-/**
- * Calcula la tabla de amortización de un crédito
- */
 export const calcularAmortizacion = (credito: {
     monto: number;
     tasaAnual: number;
@@ -229,12 +201,9 @@ export const calcularAmortizacion = (credito: {
     if (tipoTasa === 'Mensual') {
         tasaMensual = tasaAnual / 100;
     } else {
-        // Asumimos Efectiva Anual (EA)
-        // Fórmula: (1 + EA)^(1/12) - 1
         tasaMensual = Math.pow(1 + (tasaAnual / 100), 1 / 12) - 1;
     }
 
-    // Fórmula de pago mensual: M = P * [i(1 + i)^n] / [(1 + i)^n - 1]
     const pagoMensual = monto * (tasaMensual * Math.pow(1 + tasaMensual, plazoMeses)) /
         (Math.pow(1 + tasaMensual, plazoMeses) - 1);
 
@@ -251,123 +220,23 @@ export const calcularAmortizacion = (credito: {
             pagoTotal: pagoMensual,
             capital,
             interes,
-            saldoRestante: Math.max(0, saldoRestante), // Evitar negativos por redondeo
+            saldoRestante: Math.max(0, saldoRestante),
         });
     }
 
     return tabla;
 };
 
-/**
- * Calcula el total de intereses de un crédito
- */
-export const calcularTotalIntereses = (tabla: PagoAmortizacion[]): number => {
-    return tabla.reduce((total, pago) => total + pago.interes, 0);
-};
-
-/**
- * Calcula el ahorro en intereses al hacer un pago extra
- */
-export const calcularAhorroConPagoExtra = (
-    credito: { monto: number; tasaAnual: number; plazoMeses: number },
-    pagoExtra: number
-): { ahorroIntereses: number; mesesAhorrados: number } => {
-    const tablaOriginal = calcularAmortizacion(credito);
-    const interesesOriginales = calcularTotalIntereses(tablaOriginal);
-
-    // Calcular con pago extra (reducir el monto inicial)
-    const tablaNueva = calcularAmortizacion({
-        ...credito,
-        monto: credito.monto - pagoExtra,
-    });
-    const interesesNuevos = calcularTotalIntereses(tablaNueva);
-
-    return {
-        ahorroIntereses: interesesOriginales - interesesNuevos,
-        mesesAhorrados: tablaOriginal.length - tablaNueva.length,
-    };
-};
-
-// ============================================
-// FUNCIONES DE INVERSIONES
-// ============================================
-
-/**
- * Calcula el rendimiento de una inversión
- */
-export const calcularRendimientoInversion = (inversion: Inversion): number => {
-    return ((inversion.valorActual - inversion.montoInicial) / inversion.montoInicial) * 100;
-};
-
-/**
- * Proyecta el valor futuro de una inversión
- */
-export const proyectarInversion = (
-    montoInicial: number,
-    rendimientoAnual: number,
-    años: number
-): { año: number; valor: number }[] => {
-    const proyeccion: { año: number; valor: number }[] = [];
-    let valorActual = montoInicial;
-
-    for (let año = 0; año <= años; año++) {
-        proyeccion.push({ año, valor: valorActual });
-        valorActual *= (1 + rendimientoAnual / 100);
-    }
-
-    return proyeccion;
-};
-
-/**
- * Calcula el ROI (Return on Investment)
- */
-export const calcularROI = (montoInicial: number, valorActual: number): number => {
-    return ((valorActual - montoInicial) / montoInicial) * 100;
-};
-
-// ============================================
-// FUNCIONES DE METAS DE AHORRO
-// ============================================
-
-/**
- * Calcula el ahorro mensual necesario para alcanzar una meta
- */
-export const calcularAhorroMensualNecesario = (meta: MetaAhorro): number => {
-    const montoFaltante = meta.montoObjetivo - meta.montoActual;
-    const fechaActual = new Date();
-    const fechaLimite = new Date(meta.fechaLimite);
-
-    const mesesRestantes = Math.max(1,
-        (fechaLimite.getFullYear() - fechaActual.getFullYear()) * 12 +
-        (fechaLimite.getMonth() - fechaActual.getMonth())
-    );
-
-    return montoFaltante / mesesRestantes;
-};
-
-/**
- * Calcula el progreso de una meta (0-100%)
- */
 export const calcularProgresoMeta = (meta: MetaAhorro): number => {
     return Math.min(100, (meta.montoActual / meta.montoObjetivo) * 100);
 };
 
-/**
- * Estima la fecha de cumplimiento de una meta dado un ahorro mensual
- */
-export const estimarFechaCumplimiento = (
-    meta: MetaAhorro,
-    ahorroMensual: number
-): Date | null => {
-    const montoFaltante = meta.montoObjetivo - meta.montoActual;
-
-    if (ahorroMensual <= 0 || montoFaltante <= 0) {
-        return null;
-    }
-
-    const mesesNecesarios = Math.ceil(montoFaltante / ahorroMensual);
-    const fechaEstimada = new Date();
-    fechaEstimada.setMonth(fechaEstimada.getMonth() + mesesNecesarios);
-
-    return fechaEstimada;
+export const calcularDiasRestantes = (fechaLimite: string): number => {
+    const hoy = new Date();
+    const limite = new Date(fechaLimite);
+    const hoyUTC = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    const limiteUTC = Date.UTC(limite.getFullYear(), limite.getMonth(), limite.getDate());
+    const diferenciaMs = limiteUTC - hoyUTC;
+    const dias = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
+    return isNaN(dias) ? 0 : dias;
 };

@@ -4,33 +4,45 @@ import { getDoc } from '@/lib/googleSheets';
 export async function GET() {
     try {
         const doc = await getDoc();
-        let sheet = doc.sheetsByTitle['Creditos_DB'];
-
-        if (!sheet) {
-            sheet = await doc.addSheet({ title: 'Creditos_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoTotal', 'SaldoActual', 'TasaInteres', 'PlazoMeses', 'FechaInicio', 'TipoTasa']);
-        }
+        const sheet = doc.sheetsByTitle['Creditos_DB'];
+        if (!sheet) return NextResponse.json([]);
 
         const rows = await sheet.getRows();
+        
+        // --- DEBUG LOGS FOR PATRONCITO ---
+        console.log('--- DEBUG CREDITS DATA ---');
+        rows.forEach((row, i) => {
+            console.log(`Row ${i} raw object:`, row.toObject());
+        });
 
-        const credits = rows.map((row) => ({
-            id: row.get('ID'),
-            nombre: row.get('Nombre'),
-            montoTotal: parseFloat(row.get('MontoTotal') || '0'),
-            saldoActual: parseFloat(row.get('SaldoActual') || '0'),
-            tasaInteres: parseFloat(row.get('TasaInteres') || '0'),
-            plazoMeses: parseInt(row.get('PlazoMeses') || '0'),
-            fechaInicio: row.get('FechaInicio'),
-            tipoTasa: row.get('TipoTasa') || 'EA',
-        }));
+        const credits = rows.map((row) => {
+            const rawData = row.toObject();
+            
+            // Helper to find value by flexible name
+            const getVal = (patterns: string[], defaultVal: any) => {
+                const key = Object.keys(rawData).find(k => 
+                    patterns.some(p => k.toLowerCase().includes(p.toLowerCase()))
+                );
+                return key ? rawData[key] : defaultVal;
+            };
+
+            return {
+                id: getVal(['id'], ''),
+                nombre: getVal(['nombre', 'meta', 'credito'], 'Sin nombre'),
+                montoTotal: parseFloat(String(getVal(['total', 'monto'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                saldoActual: parseFloat(String(getVal(['actual', 'saldo'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                tasaInteres: parseFloat(String(getVal(['tasa', 'interes'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                pagoMinimo: parseFloat(String(getVal(['pago', 'minimo'], '0')).replace(/[$.]/g, '').replace(',', '.')),
+                fechaCorte: String(getVal(['corte', 'fecha'], '1')),
+                plazoMeses: parseInt(String(getVal(['plazo', 'meses'], '12'))),
+                usuario: getVal(['usuario', 'user'], 'Andrés'),
+            };
+        });
 
         return NextResponse.json(credits);
     } catch (error) {
         console.error('Error fetching credits:', error);
-        return NextResponse.json(
-            { error: 'Error al obtener créditos' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Error fetching credits' }, { status: 500 });
     }
 }
 
@@ -38,136 +50,39 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const doc = await getDoc();
-        let sheet = doc.sheetsByTitle['Creditos_DB'];
+        const sheet = doc.sheetsByTitle['Creditos_DB'];
+        if (!sheet) return NextResponse.json({ error: 'Sheet not found' }, { status: 404 });
 
-        if (!sheet) {
-            sheet = await doc.addSheet({ title: 'Creditos_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoTotal', 'SaldoActual', 'TasaInteres', 'PlazoMeses', 'FechaInicio', 'TipoTasa']);
-        }
+        await sheet.loadHeaderRow();
+        const headers = sheet.headerValues;
+        const findH = (p: string) => headers.find(h => h.toLowerCase().includes(p.toLowerCase()));
 
-        const id = `CRED-${Date.now()}`;
+        const newRow: any = {};
+        const colMap: Record<string, any> = {
+            'id': `CRED-${Date.now()}`,
+            'nombre': body.nombre,
+            'total': body.montoTotal,
+            'actual': body.saldoActual,
+            'tasa': body.tasaInteres,
+            'minimo': body.pagoMinimo || 0,
+            'corte': body.fechaCorte,
+            'plazo': body.plazoMeses,
+            'usuario': body.usuario || 'Andrés'
+        };
 
-        await sheet.addRow({
-            ID: id,
-            Nombre: body.nombre,
-            MontoTotal: body.montoTotal,
-            SaldoActual: body.saldoActual,
-            TasaInteres: body.tasaInteres,
-            PlazoMeses: body.plazoMeses,
-            FechaInicio: body.fechaInicio,
-            TipoTasa: body.tipoTasa || 'EA',
+        headers.forEach(h => {
+            const hLower = h.toLowerCase();
+            for (const [key, val] of Object.entries(colMap)) {
+                if (hLower.includes(key)) {
+                    newRow[h] = val;
+                    break;
+                }
+            }
         });
 
-        return NextResponse.json({ success: true, id });
+        await sheet.addRow(newRow);
+        return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error adding credit:', error);
-        return NextResponse.json(
-            { error: 'Error al agregar crédito' },
-            { status: 500 }
-        );
-    }
-}
-
-export async function DELETE(req: Request) {
-    try {
-        const { searchParams } = new URL(req.url);
-        const id = searchParams.get('id');
-
-        if (!id) {
-            return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
-        }
-
-        const doc = await getDoc();
-        const sheet = doc.sheetsByTitle['Creditos_DB'];
-
-        if (!sheet) return NextResponse.json({ error: 'Hoja no encontrada' }, { status: 404 });
-
-        const rows = await sheet.getRows();
-        const row = rows.find((r) => r.get('ID') === id);
-
-        if (row) {
-            await row.delete();
-            return NextResponse.json({ success: true });
-        }
-
-        return NextResponse.json({ error: 'Crédito no encontrado' }, { status: 404 });
-    } catch (error) {
-        console.error('Error deleting credit:', error);
-        return NextResponse.json(
-            { error: 'Error al eliminar crédito' },
-            { status: 500 }
-        );
-    }
-}
-
-export async function PUT(req: Request) {
-    try {
-        const body = await req.json();
-        const { id, nombre, montoTotal, saldoActual, tasaInteres, plazoMeses, fechaInicio, tipoTasa } = body;
-
-        if (!id) {
-            return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
-        }
-
-        const doc = await getDoc();
-        const sheet = doc.sheetsByTitle['Creditos_DB'];
-
-        if (!sheet) return NextResponse.json({ error: 'Hoja no encontrada' }, { status: 404 });
-
-        const rows = await sheet.getRows();
-        const row = rows.find((r) => r.get('ID') === id);
-
-        if (row) {
-            row.set('Nombre', nombre);
-            row.set('MontoTotal', montoTotal);
-            row.set('SaldoActual', saldoActual);
-            row.set('TasaInteres', tasaInteres);
-            row.set('PlazoMeses', plazoMeses);
-            row.set('FechaInicio', fechaInicio);
-            row.set('TipoTasa', tipoTasa || 'EA');
-            await row.save();
-            return NextResponse.json({ success: true });
-        }
-
-        return NextResponse.json({ error: 'Crédito no encontrado' }, { status: 404 });
-    } catch (error) {
-        console.error('Error updating credit:', error);
-        return NextResponse.json(
-            { error: 'Error al actualizar crédito' },
-            { status: 500 }
-        );
-    }
-}
-
-export async function PATCH(req: Request) {
-    try {
-        const body = await req.json();
-        const { id, saldoActual } = body;
-
-        if (!id || saldoActual === undefined) {
-            return NextResponse.json({ error: 'ID y saldoActual son requeridos' }, { status: 400 });
-        }
-
-        const doc = await getDoc();
-        const sheet = doc.sheetsByTitle['Creditos_DB'];
-
-        if (!sheet) return NextResponse.json({ error: 'Hoja no encontrada' }, { status: 404 });
-
-        const rows = await sheet.getRows();
-        const row = rows.find((r) => r.get('ID') === id);
-
-        if (row) {
-            row.set('SaldoActual', saldoActual);
-            await row.save();
-            return NextResponse.json({ success: true, newSaldo: saldoActual });
-        }
-
-        return NextResponse.json({ error: 'Crédito no encontrado' }, { status: 404 });
-    } catch (error) {
-        console.error('Error updating credit balance:', error);
-        return NextResponse.json(
-            { error: 'Error al actualizar saldo del crédito' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Error saving' }, { status: 500 });
     }
 }

@@ -2,7 +2,7 @@ import { getDoc } from '../lib/googleSheets';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
-function parseSafeNumber(val) {
+function parseSafeNumber(val: any) {
     if (!val || val === 'NaN') return 0;
     if (typeof val === 'number') return val;
     let str = String(val).replace(/[$ \s]/g, '');

@@ -3,314 +3,111 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { MetaAhorro, calcularProgresoMeta, calcularAhorroMensualNecesario } from '@/lib/financeUtils';
-import { Target, TrendingUp, Calendar, AlertCircle, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Target, Calendar, TrendingUp, Award, PlusCircle } from 'lucide-react';
+import { MetaAhorro, calcularProgresoMeta, calcularDiasRestantes } from '@/lib/financeUtils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { toast } from 'sonner';
+import AddSavingsModal from './AddSavingsModal';
 
 interface SavingsGoalsProps {
-    goals: MetaAhorro[];
-    onGoalsChange: () => Promise<void>;
+  goals: MetaAhorro[];
+  onGoalUpdate?: () => void;
 }
 
-export default function SavingsGoals({ goals, onGoalsChange }: SavingsGoalsProps) {
-    const [open, setOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [newGoal, setNewGoal] = useState({
-        nombre: '',
-        montoObjetivo: '',
-        montoActual: '',
-        fechaLimite: '',
-        prioridad: 'Media',
-    });
+export default function SavingsGoals({ goals, onGoalUpdate }: SavingsGoalsProps) {
+  const [selectedGoal, setSelectedGoal] = useState<MetaAhorro | null>(null);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+  const getMedal = (progress: number) => {
+    if (progress >= 100) return { icon: '🏆', color: 'text-blue-400', label: 'Platinum' };
+    if (progress >= 75) return { icon: '🥇', color: 'text-yellow-400', label: 'Gold' };
+    if (progress >= 50) return { icon: '🥈', color: 'text-slate-300', label: 'Silver' };
+    if (progress >= 25) return { icon: '🥉', color: 'text-amber-600', label: 'Bronze' };
+    return null;
+  };
 
-        if (!newGoal.nombre || !newGoal.montoObjetivo || !newGoal.fechaLimite) {
-            toast.warning('Completa los campos requeridos');
-            return;
-        }
+  return (
+    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {goals.map((goal) => {
+        const progress = calcularProgresoMeta(goal);
+        const dias = calcularDiasRestantes(goal.fechaLimite);
+        const medal = getMedal(progress);
 
-        try {
-            setLoading(true);
-            const res = await fetch('/api/goals', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...newGoal,
-                    montoObjetivo: Number(newGoal.montoObjetivo),
-                    montoActual: Number(newGoal.montoActual) || 0,
-                }),
-            });
-
-            if (!res.ok) throw new Error('Error al crear meta');
-
-            toast.success('Meta creada exitosamente');
-            setOpen(false);
-            setNewGoal({
-                nombre: '',
-                montoObjetivo: '',
-                montoActual: '',
-                fechaLimite: '',
-                prioridad: 'Media',
-            });
-            await onGoalsChange();
-        } catch (error) {
-            console.error(error);
-            toast.error('Error al guardar la meta');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP',
-            minimumFractionDigits: 0,
-        }).format(value);
-    };
-
-    const getPrioridadColor = (prioridad: string) => {
-        switch (prioridad) {
-            case 'Alta':
-                return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30';
-            case 'Media':
-                return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30';
-            case 'Baja':
-                return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30';
-            default:
-                return '';
-        }
-    };
-
-    const getDiasRestantes = (fechaLimite: string) => {
-        const hoy = new Date();
-        const limite = new Date(fechaLimite);
-        const diff = limite.getTime() - hoy.getTime();
-        return Math.ceil(diff / (1000 * 60 * 60 * 24));
-    };
-
-    return (
-        <div className="space-y-6">
-            {/* Header */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <div className="space-y-1">
-                        <CardTitle className="flex items-center gap-2">
-                            <Target className="h-5 w-5 text-primary" />
-                            Mis Metas
-                        </CardTitle>
-                        <p className="text-sm text-muted-foreground">
-                            Gestiona tus objetivos financieros
-                        </p>
+        return (
+          <Card key={goal.id} className="relative overflow-hidden border-2 transition-all hover:shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-lg font-bold">{goal.nombre}</CardTitle>
+              <Target className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-2xl font-bold text-primary">
+                      ${goal.montoActual.toLocaleString('es-CO')}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      de ${goal.montoObjetivo.toLocaleString('es-CO')}
+                    </p>
+                  </div>
+                  {medal && (
+                    <div className="flex flex-col items-center">
+                      <span className="text-3xl">{medal.icon}</span>
+                      <span className={`text-[10px] font-bold uppercase ${medal.color}`}>{medal.label}</span>
                     </div>
-                    <Dialog open={open} onOpenChange={setOpen}>
-                        <DialogTrigger asChild>
-                            <Button>
-                                <Plus className="mr-2 h-4 w-4" /> Nueva Meta
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                                <DialogTitle>Crear Nueva Meta</DialogTitle>
-                                <DialogDescription>
-                                    Define un objetivo de ahorro claro y alcanzable.
-                                </DialogDescription>
-                            </DialogHeader>
-                            <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="nombre">Nombre de la Meta</Label>
-                                    <Input
-                                        id="nombre"
-                                        value={newGoal.nombre}
-                                        onChange={(e) => setNewGoal({ ...newGoal, nombre: e.target.value })}
-                                        placeholder="Ej: Vacaciones, Carro..."
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="montoObjetivo">Monto Objetivo</Label>
-                                        <Input
-                                            id="montoObjetivo"
-                                            type="number"
-                                            value={newGoal.montoObjetivo}
-                                            onChange={(e) => setNewGoal({ ...newGoal, montoObjetivo: e.target.value })}
-                                            placeholder="$$$"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="montoActual">Ahorro Actual</Label>
-                                        <Input
-                                            id="montoActual"
-                                            type="number"
-                                            value={newGoal.montoActual}
-                                            onChange={(e) => setNewGoal({ ...newGoal, montoActual: e.target.value })}
-                                            placeholder="$$$ (Opcional)"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="fechaLimite">Fecha Límite</Label>
-                                        <Input
-                                            id="fechaLimite"
-                                            type="date"
-                                            value={newGoal.fechaLimite}
-                                            onChange={(e) => setNewGoal({ ...newGoal, fechaLimite: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="prioridad">Prioridad</Label>
-                                        <Select
-                                            value={newGoal.prioridad}
-                                            onValueChange={(val) => setNewGoal({ ...newGoal, prioridad: val })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="Alta">Alta</SelectItem>
-                                                <SelectItem value="Media">Media</SelectItem>
-                                                <SelectItem value="Baja">Baja</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <DialogFooter>
-                                    <Button type="submit" disabled={loading}>
-                                        {loading ? 'Guardando...' : 'Crear Meta'}
-                                    </Button>
-                                </DialogFooter>
-                            </form>
-                        </DialogContent>
-                    </Dialog>
-                </CardHeader>
-            </Card>
-
-            {/* Metas */}
-            {goals.length === 0 ? (
-                <Card className="border-dashed">
-                    <CardContent className="py-10 text-center">
-                        <Target className="h-10 w-10 text-muted-foreground mx-auto mb-4 opacity-50" />
-                        <h3 className="text-lg font-medium">No tienes metas registradas</h3>
-                        <p className="text-muted-foreground mb-4">Empieza creando una nueva meta de ahorro.</p>
-                        <Button variant="outline" onClick={() => setOpen(true)}>Crear mi primera meta</Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="grid grid-cols-1 gap-4">
-                    {goals.map((meta) => {
-                        const progreso = calcularProgresoMeta(meta);
-                        const ahorroMensual = calcularAhorroMensualNecesario(meta);
-                        const diasRestantes = getDiasRestantes(meta.fechaLimite);
-                        const montoFaltante = meta.montoObjetivo - meta.montoActual;
-
-                        return (
-                            <Card key={meta.id}>
-                                <CardHeader>
-                                    <div className="flex items-start justify-between">
-                                        <div className="space-y-1">
-                                            <CardTitle className="text-xl">{meta.nombre}</CardTitle>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-xs px-2 py-1 rounded-full ${getPrioridadColor(meta.prioridad)}`}>
-                                                    Prioridad {meta.prioridad}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-2xl font-bold text-primary">
-                                                {progreso.toFixed(0)}%
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">Completado</div>
-                                        </div>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {/* Barra de Progreso */}
-                                    <div className="space-y-2">
-                                        <Progress value={progreso} className="h-3" />
-                                        <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">
-                                                {formatCurrency(meta.montoActual)}
-                                            </span>
-                                            <span className="font-medium">
-                                                {formatCurrency(meta.montoObjetivo)}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Información */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                <TrendingUp className="h-3 w-3" />
-                                                Ahorro Mensual Necesario
-                                            </div>
-                                            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                                                {formatCurrency(ahorroMensual)}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                <AlertCircle className="h-3 w-3" />
-                                                Monto Faltante
-                                            </div>
-                                            <div className="text-lg font-bold">
-                                                {formatCurrency(montoFaltante)}
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                <Calendar className="h-3 w-3" />
-                                                Días Restantes
-                                            </div>
-                                            <div className={`text-lg font-bold ${diasRestantes < 30 ? 'text-red-600 dark:text-red-400' :
-                                                diasRestantes < 90 ? 'text-yellow-600 dark:text-yellow-400' :
-                                                    'text-emerald-600 dark:text-emerald-400'
-                                                }`}>
-                                                {diasRestantes} días
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Fecha Límite */}
-                                    <div className="pt-2 border-t">
-                                        <div className="text-xs text-muted-foreground">
-                                            Fecha límite: {new Date(meta.fechaLimite).toLocaleDateString('es-CO', {
-                                                day: 'numeric',
-                                                month: 'long',
-                                                year: 'numeric'
-                                            })}
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
+                  )}
                 </div>
-            )}
-        </div>
-    );
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>Progreso</span>
+                    <span>{progress.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <div className="text-xs">
+                      <p className="font-medium">{dias} días</p>
+                      <p className="text-muted-foreground uppercase text-[10px]">Restantes</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    <div className="text-xs">
+                      <p className="font-medium text-emerald-600">
+                        {goal.prioridad}
+                      </p>
+                      <p className="text-muted-foreground uppercase text-[10px]">Prioridad</p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  className="w-full gap-2" 
+                  variant="outline"
+                  onClick={() => setSelectedGoal(goal)}
+                >
+                  <PlusCircle className="h-4 w-4" />
+                  Ahorrar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {selectedGoal && (
+        <AddSavingsModal 
+          goal={selectedGoal} 
+          onClose={() => setSelectedGoal(null)}
+          onSuccess={() => {
+            setSelectedGoal(null);
+            if (onGoalUpdate) onGoalUpdate();
+          }}
+        />
+      )}
+    </div>
+  );
 }

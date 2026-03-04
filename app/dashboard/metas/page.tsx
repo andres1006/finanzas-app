@@ -5,7 +5,7 @@ import SavingsGoals from '@/components/SavingsGoals';
 import { MetaAhorro } from '@/lib/financeUtils';
 import { toast } from 'sonner';
 
-export default function GoalsPage() {
+export default function MetasPage() {
     const [goals, setGoals] = useState<MetaAhorro[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -14,11 +14,11 @@ export default function GoalsPage() {
             setLoading(true);
             const res = await fetch('/api/goals');
             if (!res.ok) throw new Error('Error al cargar metas');
-            const data = await res.json();
+            const data: MetaAhorro[] = await res.json();
             setGoals(data);
         } catch (error) {
             console.error('Error:', error);
-            toast.error('Error al cargar metas de ahorro');
+            toast.error('Error al cargar las metas de ahorro');
         } finally {
             setLoading(false);
         }
@@ -28,27 +28,18 @@ export default function GoalsPage() {
         fetchGoals();
     }, []);
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <div className="flex flex-col items-center gap-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="text-muted-foreground">Cargando metas...</p>
+    return (
+        <div className="space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Metas de Ahorro</h2>
+                    <p className="text-muted-foreground">
+                        Sigue el progreso de tus objetivos y celebra tus logros
+                    </p>
                 </div>
             </div>
-        );
-    }
 
-    return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="text-3xl font-bold tracking-tight">Metas de Ahorro</h2>
-                <p className="text-muted-foreground">
-                    Define y monitorea tus objetivos financieros
-                </p>
-            </div>
-
-            <SavingsGoals goals={goals} onGoalsChange={fetchGoals} />
+            <SavingsGoals goals={goals} onGoalUpdate={fetchGoals} />
         </div>
     );
 }

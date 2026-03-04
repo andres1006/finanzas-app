@@ -11,7 +11,7 @@ async function checkHeaders() {
     const rows = await sheet.getRows();
     const row = rows.find(r => r.get('Mes') === '2026-03' && r.get('Concepto').toLowerCase().includes('gasolina'));
     if (row) {
-        console.log("Raw row values:", row._rawData);
+        console.log("Raw row values:", row.toObject());
     }
 }
 

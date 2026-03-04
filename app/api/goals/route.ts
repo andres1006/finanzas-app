@@ -4,32 +4,39 @@ import { getDoc } from '@/lib/googleSheets';
 export async function GET() {
     try {
         const doc = await getDoc();
-        let sheet = doc.sheetsByTitle['Metas_DB'];
-
-        // Si no existe la hoja, crearla con headers por defecto
+        const sheet = doc.sheetsByTitle['Metas_DB'];
         if (!sheet) {
-            sheet = await doc.addSheet({ title: 'Metas_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoObjetivo', 'MontoActual', 'FechaLimite', 'Prioridad']);
+            console.error('Hoja Metas_DB no encontrada');
+            return NextResponse.json([]);
+        }
+
+        // --- AUTOMATIC HEADER SYNC ---
+        // Esto forzará que el Excel tenga los nombres exactos que el código espera
+        try {
+            await sheet.setHeaderRow(['ID', 'Nombre', 'Monto_Objetivo', 'Monto_Actual', 'Fecha_Limite', 'Prioridad', 'Usuario']);
+        } catch (e) {
+            console.warn('No se pudieron actualizar los headers, procediendo con lectura.');
         }
 
         const rows = await sheet.getRows();
-
-        const goals = rows.map((row) => ({
-            id: row.get('ID') || '',
-            nombre: row.get('Nombre') || '',
-            montoObjetivo: parseFloat(row.get('MontoObjetivo') || '0'),
-            montoActual: parseFloat(row.get('MontoActual') || '0'),
-            fechaLimite: row.get('FechaLimite') || '',
-            prioridad: row.get('Prioridad') || 'Media',
-        }));
+        const goals = rows.map((row) => {
+            const rawData = row.toObject();
+            
+            return {
+                id: rawData.ID || '',
+                nombre: rawData.Nombre || 'Sin nombre',
+                montoObjetivo: parseFloat(rawData.Monto_Objetivo || '0'),
+                montoActual: parseFloat(rawData.Monto_Actual || '0'),
+                fechaLimite: rawData.Fecha_Limite || '',
+                prioridad: rawData.Prioridad || 'Media',
+                usuario: rawData.Usuario || 'Andrés',
+            };
+        });
 
         return NextResponse.json(goals);
     } catch (error) {
-        console.error('Error fetching goals:', error);
-        return NextResponse.json(
-            { error: 'Error al obtener las metas' },
-            { status: 500 }
-        );
+        console.error('Error en GET /api/goals:', error);
+        return NextResponse.json({ error: 'Error fetching goals' }, { status: 500 });
     }
 }
 
@@ -37,32 +44,22 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const doc = await getDoc();
-        let sheet = doc.sheetsByTitle['Metas_DB'];
+        const sheet = doc.sheetsByTitle['Metas_DB'];
+        if (!sheet) return NextResponse.json({ error: 'Sheet Metas_DB not found' }, { status: 404 });
 
-        if (!sheet) {
-            sheet = await doc.addSheet({ title: 'Metas_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoObjetivo', 'MontoActual', 'FechaLimite', 'Prioridad']);
-        }
-
-        const id = `GOAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        const rowData = {
-            ID: id,
+        await sheet.addRow({
+            ID: `GOAL-${Date.now()}`,
             Nombre: body.nombre,
-            MontoObjetivo: body.montoObjetivo,
-            MontoActual: body.montoActual || 0,
-            FechaLimite: body.fechaLimite,
-            Prioridad: body.prioridad || 'Media',
-        };
+            Monto_Objetivo: body.montoObjetivo,
+            Monto_Actual: body.montoActual,
+            Fecha_Limite: body.fechaLimite,
+            Prioridad: body.prioridad,
+            Usuario: body.usuario || 'Andrés'
+        });
 
-        await sheet.addRow(rowData);
-
-        return NextResponse.json({ success: true, id });
+        return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error adding goal:', error);
-        return NextResponse.json(
-            { error: 'Error al agregar la meta' },
-            { status: 500 }
-        );
+        console.error('Error en POST /api/goals:', error);
+        return NextResponse.json({ error: 'Error saving goal' }, { status: 500 });
     }
 }
