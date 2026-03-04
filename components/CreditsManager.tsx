@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Credito, calcularAmortizacion } from '@/lib/financeUtils';
+import { Credito } from '@/lib/financeUtils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CreditCard, Plus, History, TrendingDown, Info } from 'lucide-react';
+import { CreditCard, Plus, History } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface CreditsManagerProps {
@@ -18,29 +18,32 @@ export default function CreditsManager({ credits, onCreditsChange }: CreditsMana
         <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {credits.map((credit) => {
-                    const progress = ((credit.saldoTotal - credit.saldoActual) / credit.saldoTotal) * 100;
+                    const saldoTotal = credit.montoTotal || 0;
+                    const saldoActual = credit.saldoActual || 0;
+                    const progress = saldoTotal > 0 ? ((saldoTotal - saldoActual) / saldoTotal) * 100 : 0;
+                    
                     return (
                         <Card key={credit.id} className="relative overflow-hidden">
                             <CardHeader className="pb-2">
                                 <div className="flex justify-between items-start">
                                     <Badge variant="outline" className="mb-2 uppercase text-[10px]">
-                                        {credit.usuario}
+                                        {credit.usuario || 'Andrés'}
                                     </Badge>
                                     <CreditCard className="h-4 w-4 text-muted-foreground" />
                                 </div>
                                 <CardTitle className="text-lg">{credit.nombre}</CardTitle>
-                                <CardDescription>Tasa: {credit.tasaInteres}% EA</CardDescription>
+                                <CardDescription>Tasa: {credit.tasaInteres}%</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-1">
                                     <div className="flex justify-between text-xs font-medium">
                                         <span className="text-muted-foreground">Saldo Actual</span>
-                                        <span>${credit.saldoActual.toLocaleString('es-CO')}</span>
+                                        <span>${saldoActual.toLocaleString('es-CO')}</span>
                                     </div>
                                     <Progress value={progress} className="h-2" />
                                     <div className="flex justify-between text-[10px] text-muted-foreground">
                                         <span>{progress.toFixed(1)}% Pagado</span>
-                                        <span>Total: ${credit.saldoTotal.toLocaleString('es-CO')}</span>
+                                        <span>Total: ${saldoTotal.toLocaleString('es-CO')}</span>
                                     </div>
                                 </div>
 

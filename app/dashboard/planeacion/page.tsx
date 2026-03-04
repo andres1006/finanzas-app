@@ -22,7 +22,9 @@ export default function PlaneacionPage() {
             if (!res.ok) throw new Error('Error al cargar transacciones');
             const data: Transaccion[] = await res.json();
             
-            const filtered = filtrarPorMes(data, selectedMonth, selectedYear);
+            // Convertir mes/año a formato YYYY-MM para la nueva función de filtrado
+            const monthStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+            const filtered = filtrarPorMes(data, monthStr);
             setTransactions(filtered);
         } catch (error) {
             console.error('Error:', error);
