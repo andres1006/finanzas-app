@@ -4,32 +4,24 @@ import { getDoc } from '@/lib/googleSheets';
 export async function GET() {
     try {
         const doc = await getDoc();
-        let sheet = doc.sheetsByTitle['Metas_DB'];
-
-        // Si no existe la hoja, crearla con headers por defecto
-        if (!sheet) {
-            sheet = await doc.addSheet({ title: 'Metas_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoObjetivo', 'MontoActual', 'FechaLimite', 'Prioridad']);
-        }
+        const sheet = doc.sheetsByTitle['Metas_DB'];
+        if (!sheet) return NextResponse.json([]);
 
         const rows = await sheet.getRows();
-
         const goals = rows.map((row) => ({
             id: row.get('ID') || '',
             nombre: row.get('Nombre') || '',
-            montoObjetivo: parseFloat(row.get('MontoObjetivo') || '0'),
-            montoActual: parseFloat(row.get('MontoActual') || '0'),
-            fechaLimite: row.get('FechaLimite') || '',
+            montoObjetivo: parseFloat(row.get('Monto_Objetivo') || row.get('Objetivo') || '0'),
+            montoActual: parseFloat(row.get('Monto_Actual') || row.get('Actual') || '0'),
+            fechaLimite: row.get('Fecha_Limite') || '',
             prioridad: row.get('Prioridad') || 'Media',
+            usuario: row.get('Usuario') || '',
         }));
 
         return NextResponse.json(goals);
     } catch (error) {
-        console.error('Error fetching goals:', error);
-        return NextResponse.json(
-            { error: 'Error al obtener las metas' },
-            { status: 500 }
-        );
+        console.error(error);
+        return NextResponse.json({ error: 'Error fetching goals' }, { status: 500 });
     }
 }
 
@@ -37,32 +29,22 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const doc = await getDoc();
-        let sheet = doc.sheetsByTitle['Metas_DB'];
+        const sheet = doc.sheetsByTitle['Metas_DB'];
+        if (!sheet) return NextResponse.json({ error: 'Sheet not found' }, { status: 404 });
 
-        if (!sheet) {
-            sheet = await doc.addSheet({ title: 'Metas_DB' });
-            await sheet.setHeaderRow(['ID', 'Nombre', 'MontoObjetivo', 'MontoActual', 'FechaLimite', 'Prioridad']);
-        }
-
-        const id = `GOAL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-        const rowData = {
-            ID: id,
+        await sheet.addRow({
+            ID: `GOAL-${Date.now()}`,
             Nombre: body.nombre,
-            MontoObjetivo: body.montoObjetivo,
-            MontoActual: body.montoActual || 0,
-            FechaLimite: body.fechaLimite,
-            Prioridad: body.prioridad || 'Media',
-        };
+            Monto_Objetivo: body.montoObjetivo,
+            Monto_Actual: body.montoActual,
+            Fecha_Limite: body.fechaLimite,
+            Prioridad: body.prioridad,
+            Usuario: body.usuario || 'Andrés'
+        });
 
-        await sheet.addRow(rowData);
-
-        return NextResponse.json({ success: true, id });
+        return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error adding goal:', error);
-        return NextResponse.json(
-            { error: 'Error al agregar la meta' },
-            { status: 500 }
-        );
+        console.error(error);
+        return NextResponse.json({ error: 'Error saving goal' }, { status: 500 });
     }
 }

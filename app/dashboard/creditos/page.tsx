@@ -1,16 +1,21 @@
-import CreditsManager from "@/components/CreditsManager";
+'use client';
 
-export default function CreditsPage() {
+import CreditsManager from '@/components/CreditsManager';
+import { useFinanceData } from '@/hooks/useFinanceData';
+
+export default function CreditosPage() {
+    const { credits, refresh } = useFinanceData();
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight">Gestión de Créditos</h2>
+                <h2 className="text-3xl font-bold tracking-tight">Créditos</h2>
                 <p className="text-muted-foreground">
-                    Controla tus deudas, visualiza amortizaciones y simula pagos extraordinarios.
+                    Gestiona tus deudas y visualiza el progreso de tus pagos
                 </p>
             </div>
             
-            <CreditsManager />
+            <CreditsManager credits={credits} onCreditsChange={async () => refresh()} />
         </div>
     );
 }
