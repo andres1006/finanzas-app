@@ -11,42 +11,52 @@ export async function POST(req: Request) {
         if (!creditSheet) throw new Error('Creditos_DB not found');
 
         const rows = await creditSheet.getRows();
-        // Buscamos por ID (exacto) o por id (minúsculas)
-        const row = rows.find(r => r.get('ID') === creditId || r.get('id') === creditId);
+        
+        // Búsqueda bruta: cualquier fila donde el creditId aparezca en alguna celda
+        const row = rows.find(r => {
+            const values = Object.values(r.toObject()).map(v => String(v).trim());
+            return values.includes(String(creditId).trim());
+        });
         
         if (row) {
-            // Intentar leer saldo actual de varias formas comunes
-            const currentActualStr = row.get('Saldo_Actual') || row.get('Saldo Actual') || row.get('Saldo_actual') || '0';
-            const currentActual = parseFloat(String(currentActualStr).replace(/[$.]/g, '').replace(',', '.'));
+            const raw = row.toObject();
+            const keys = Object.keys(raw);
             
-            const newActual = Math.max(0, currentActual - amount);
-            
-            // Log para debuggear
-            console.log(`Updating credit ${creditId}: ${currentActual} -> ${newActual}`);
+            // Encontrar la columna del saldo actual (que contenga "saldo" y "actual")
+            const saldoKey = keys.find(k => k.toLowerCase().includes('saldo') && k.toLowerCase().includes('actual')) 
+                          || keys.find(k => k.toLowerCase().includes('actual'))
+                          || 'Saldo_Actual';
 
-            // Intentar guardar en la columna correcta
-            if (row.get('Saldo_Actual') !== undefined) row.set('Saldo_Actual', newActual);
-            else if (row.get('Saldo Actual') !== undefined) row.set('Saldo Actual', newActual);
-            else if (row.get('saldo_actual') !== undefined) row.set('saldo_actual', newActual);
+            const currentVal = parseFloat(String(raw[saldoKey] || '0').replace(/[$.]/g, '').replace(',', '.'));
+            const newVal = Math.max(0, currentVal - amount);
             
+            row.set(saldoKey, newVal);
             await row.save();
-            console.log('Credit row saved successfully');
-        } else {
-            console.warn(`Credit row with ID ${creditId} not found`);
         }
 
         // 2. Registrar en historial Abonos_Creditos_DB
         const historySheet = doc.sheetsByTitle['Abonos_Creditos_DB'];
         if (historySheet) {
-            await historySheet.addRow({
-                Fecha: new Date().toISOString().split('T')[0],
-                Credito_ID: creditId,
-                Monto: amount,
-                Usuario: user || 'Andrés'
-            });
+            await historySheet.loadHeaderRow();
+            const headers = historySheet.headerValues;
+            
+            const findH = (p: string) => headers.find(h => h.toLowerCase().includes(p.toLowerCase()));
+            
+            const newRow: any = {};
+            const idCol = findH('credito') || findH('id') || headers[1];
+            const dateCol = findH('fecha') || headers[0];
+            const montoCol = findH('monto') || findH('valor') || headers[2];
+            const userCol = findH('usuario') || headers[3];
+
+            if (idCol) newRow[idCol] = creditId;
+            if (dateCol) newRow[dateCol] = new Date().toISOString().split('T')[0];
+            if (montoCol) newRow[montoCol] = amount;
+            if (userCol) newRow[userCol] = user || 'Andrés';
+
+            await historySheet.addRow(newRow);
         }
 
-        // 3. Registrar como gasto en Transacciones_DB
+        // 3. Transacciones_DB
         const transSheet = doc.sheetsByTitle['Transacciones_DB'];
         if (transSheet) {
             const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -56,7 +66,7 @@ export async function POST(req: Request) {
                 Día: days[new Date().getDay()],
                 Tipo: 'Abono Deuda',
                 Categoría: 'Créditos',
-                Descripción: `Abono a: ${row?.get('Nombre') || 'Crédito'}`,
+                Descripción: `Abono a Crédito`,
                 Monto: amount,
                 Usuario: user || 'Andrés'
             });
@@ -64,7 +74,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error en pago de crédito:', error);
-        return NextResponse.json({ error: 'Error processing credit payment' }, { status: 500 });
+        console.error('Error payment:', error);
+        return NextResponse.json({ error: 'Error processing' }, { status: 500 });
     }
 }

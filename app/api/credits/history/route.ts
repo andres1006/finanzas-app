@@ -10,48 +10,33 @@ export async function GET(req: Request) {
 
         const doc = await getDoc();
         const sheet = doc.sheetsByTitle['Abonos_Creditos_DB'];
-        if (!sheet) {
-            console.error('Hoja Abonos_Creditos_DB no encontrada');
-            return NextResponse.json([]);
-        }
+        if (!sheet) return NextResponse.json([]);
 
         const rows = await sheet.getRows();
         
-        // Log exhaustivo para debuggear en el servidor
-        console.log('--- DEBUG CREDITS HISTORY ---');
-        console.log('Target Credit ID:', creditId);
-        
-        if (rows.length > 0) {
-            console.log('Available Columns in History Sheet:', Object.keys(rows[0].toObject()));
-        }
-
         const history = rows
             .filter(row => {
-                const rawObj = row.toObject();
-                // Buscamos el ID en cualquier columna que se parezca a Credito_ID
-                const idInSheet = String(
-                    rawObj['Credito_ID'] || 
-                    rawObj['id_credito'] || 
-                    rawObj['ID_Credito'] || 
-                    rawObj['ID'] || 
-                    rawObj['id'] || 
-                    ''
-                ).trim();
+                const raw = row.toObject();
+                // Buscamos el valor en CUALQUIER columna que contenga el ID del crédito
+                const values = Object.values(raw).map(v => String(v).trim());
+                const target = String(creditId).trim();
                 
-                const targetId = String(creditId).trim();
-                const isMatch = idInSheet === targetId;
-                
-                if (isMatch) {
-                    console.log(`MATCH FOUND: row ID [${idInSheet}] matches target [${targetId}]`);
-                }
-                
-                return isMatch;
+                // Si el ID del crédito aparece en cualquier celda de la fila, lo incluimos
+                // (Es una búsqueda bruta para bypass problemas de nombres de columnas)
+                return values.includes(target);
             })
             .map(row => {
-                const rawObj = row.toObject();
-                const rawDate = rawObj['Fecha'] || rawObj['fecha'] || '';
-                const rawMonto = rawObj['Monto'] || rawObj['monto'] || '0';
-                const rawUser = rawObj['Usuario'] || rawObj['usuario'] || 'Andrés';
+                const raw = row.toObject();
+                // Buscamos monto y fecha por patrones de nombre
+                const getByPattern = (patterns: string[]) => {
+                    const keys = Object.keys(raw);
+                    const match = keys.find(k => patterns.some(p => k.toLowerCase().includes(p.toLowerCase())));
+                    return match ? raw[match] : null;
+                };
+
+                const rawDate = getByPattern(['fecha', 'date']) || '';
+                const rawMonto = getByPattern(['monto', 'amount', 'valor', 'pago']) || '0';
+                const rawUser = getByPattern(['usuario', 'user', 'nombre']) || 'Andrés';
 
                 return {
                     fecha: rawDate,
@@ -67,12 +52,9 @@ export async function GET(req: Request) {
                 }
             });
 
-        console.log(`Total items found for ${creditId}: ${history.length}`);
-        console.log('-----------------------------');
-
         return NextResponse.json(history);
     } catch (error) {
-        console.error('Error fetching credit history:', error);
+        console.error('Error fetching history:', error);
         return NextResponse.json({ error: 'Error fetching history' }, { status: 500 });
     }
 }
