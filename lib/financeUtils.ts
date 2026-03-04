@@ -22,9 +22,11 @@ export interface Credito {
   id: string;
   nombre: string;
   saldoTotal: number;
+  saldoActual: number;
   tasaInteres: number;
   pagoMinimo: number;
   fechaCorte: string;
+  plazoMeses: number;
   usuario: 'Andrés' | 'Mariana';
 }
 
@@ -36,6 +38,8 @@ export interface PagoAmortizacion {
   saldo: number;
 }
 
+// --- Savings Utils ---
+
 export const calcularProgresoMeta = (meta: MetaAhorro): number => {
   if (meta.montoObjetivo <= 0) return 0;
   const progreso = (meta.montoActual / meta.montoObjetivo) * 100;
@@ -45,14 +49,10 @@ export const calcularProgresoMeta = (meta: MetaAhorro): number => {
 export const calcularDiasRestantes = (fechaLimite: string): number => {
   const hoy = new Date();
   const limite = new Date(fechaLimite);
-  
-  // Normalizar fechas a medianoche para evitar problemas con horas
   const hoyUTC = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   const limiteUTC = Date.UTC(limite.getFullYear(), limite.getMonth(), limite.getDate());
-  
   const diferenciaMs = limiteUTC - hoyUTC;
   const dias = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
-  
   return isNaN(dias) ? 0 : dias;
 };
 
@@ -60,13 +60,13 @@ export const calcularAhorroMensualNecesario = (meta: MetaAhorro): number => {
   const hoy = new Date();
   const limite = new Date(meta.fechaLimite);
   const mesesRestantes = (limite.getFullYear() - hoy.getFullYear()) * 12 + (limite.getMonth() - hoy.getMonth());
-  
   const faltante = meta.montoObjetivo - meta.montoActual;
   if (faltante <= 0) return 0;
   if (mesesRestantes <= 0) return faltante;
-  
   return faltante / mesesRestantes;
 };
+
+// --- General Finance Utils ---
 
 export const filtrarPorMes = (transacciones: Transaccion[], mes: number, anio: number) => {
   return transacciones.filter(t => {
@@ -113,9 +113,12 @@ export const calcularProyecciones = (transacciones: Transaccion[]) => {
   
   return {
     proyectado: gastoDiario * diasMes,
-    promedioDiario: gastoDiario
+    promedioDiario: gastoDiario,
+    runway: 0 // Placeholder for next implementation
   };
 };
+
+// --- Credit Utils ---
 
 export const calcularAmortizacion = (saldo: number, tasa: number, cuota: number): PagoAmortizacion[] => {
   const pagos: PagoAmortizacion[] = [];
