@@ -42,6 +42,20 @@ export const calcularProgresoMeta = (meta: MetaAhorro): number => {
   return Math.min(progreso, 100);
 };
 
+export const calcularDiasRestantes = (fechaLimite: string): number => {
+  const hoy = new Date();
+  const limite = new Date(fechaLimite);
+  
+  // Normalizar fechas a medianoche para evitar problemas con horas
+  const hoyUTC = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const limiteUTC = Date.UTC(limite.getFullYear(), limite.getMonth(), limite.getDate());
+  
+  const diferenciaMs = limiteUTC - hoyUTC;
+  const dias = Math.ceil(diferenciaMs / (1000 * 60 * 60 * 24));
+  
+  return isNaN(dias) ? 0 : dias;
+};
+
 export const calcularAhorroMensualNecesario = (meta: MetaAhorro): number => {
   const hoy = new Date();
   const limite = new Date(meta.fechaLimite);
