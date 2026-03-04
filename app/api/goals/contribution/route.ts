@@ -3,31 +3,34 @@ import { getDoc } from '@/lib/googleSheets';
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { goalId, amount, user } = body;
-
+        const { goalId, amount, user } = await req.json();
         const doc = await getDoc();
         
-        // 1. Actualizar el monto en Metas_DB
-        const goalsSheet = doc.sheetsByTitle['Metas_DB'];
-        const goalsRows = await goalsSheet.getRows();
-        const goalRow = goalsRows.find(r => r.get('ID') === goalId);
+        // 1. Actualizar la meta en Metas_DB
+        const goalSheet = doc.sheetsByTitle['Metas_DB'];
+        if (!goalSheet) throw new Error('Metas_DB not found');
 
-        if (!goalRow) {
-            return NextResponse.json({ error: 'Meta no encontrada' }, { status: 404 });
+        const rows = await goalSheet.getRows();
+        const row = rows.find(r => r.get('ID') === goalId || r.get('id') === goalId);
+        
+        if (row) {
+            const currentActual = parseFloat(row.get('Monto_Actual') || row.get('Actual') || row.get('actual') || '0');
+            const newActual = currentActual + amount;
+            
+            // Intentar actualizar usando diferentes nombres de columna comunes
+            if (row.get('Monto_Actual') !== undefined) row.set('Monto_Actual', newActual);
+            else if (row.get('Actual') !== undefined) row.set('Actual', newActual);
+            else if (row.get('actual') !== undefined) row.set('actual', newActual);
+            
+            await row.save();
         }
 
-        const currentAmount = parseFloat(goalRow.get('Actual') || '0');
-        goalRow.set('Actual', (currentAmount + parseFloat(amount)).toString());
-        await goalRow.save();
-
-        // 2. Registrar en el historial (Ahorros_Historial_DB)
+        // 2. Registrar en historial Ahorros_Historial_DB
         const historySheet = doc.sheetsByTitle['Ahorros_Historial_DB'];
         if (historySheet) {
             await historySheet.addRow({
-                ID: `SAV-${Date.now()}`,
-                Meta_ID: goalId,
                 Fecha: new Date().toISOString().split('T')[0],
+                Meta_ID: goalId,
                 Monto: amount,
                 Usuario: user
             });
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error('Error in contribution:', error);
-        return NextResponse.json({ error: 'Error al procesar el ahorro' }, { status: 500 });
+        console.error('Error en contribution:', error);
+        return NextResponse.json({ error: 'Error processing contribution' }, { status: 500 });
     }
 }
