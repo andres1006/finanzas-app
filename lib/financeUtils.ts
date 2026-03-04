@@ -99,6 +99,7 @@ export type Credito = {
     plazoMeses: number;
     pagoMensual: number;
     fechaInicio: string;
+    fechaCorte?: string;
     tipoTasa?: 'Mensual' | 'EA';
     usuario?: 'Andrés' | 'Mariana';
 };
